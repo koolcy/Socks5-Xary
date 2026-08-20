@@ -13,7 +13,7 @@ bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release
 mkdir -p /usr/local/etc/xray
 
 read -p "请输入 SOCKS5 端口 (默认10808): " PORT
-PORT=${PORT:-10808}
+PORT=${PORT:-55566}
 
 read -p "请输入用户名: " USER
 
