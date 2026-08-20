@@ -29,14 +29,14 @@ sudo ./install_socks5.sh
 
 脚本会提示输入：
 
-- SOCKS5 端口（默认 10808）
+- SOCKS5 端口（默认 55566）
 - 用户名
 - 密码（需确认两次）
 
 示例：
 
 ```text
-请输入 SOCKS5 端口 (默认10808): 10808
+请输入 SOCKS5 端口 (默认55566): 55566
 请输入用户名: admin
 请输入密码:
 请再次输入密码:
@@ -46,7 +46,7 @@ sudo ./install_socks5.sh
 
 ```text
 服务器 : 1.2.3.4
-端口   : 10808
+端口   : 55566
 用户名 : admin
 密码   : ******
 协议   : SOCKS5
@@ -79,12 +79,14 @@ journalctl -u xray -f
 | 密码 | 安装时设置 |
 | UDP | 开启 |
 
-## 系统要求
+### 支持系统
 
-- Debian 11+
+- Alpine Linux 3.x
+- Debian 11 / 12
 - Ubuntu 20.04+
-- Root 权限
-
+- CentOS 7
+- Rocky Linux 8 / 9
+- AlmaLinux 8 / 9
 ---
 
 **GitHub：** https://github.com/koolcy/Socks5-Xary
