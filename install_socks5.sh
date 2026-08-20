@@ -4,7 +4,7 @@ set -e
 [[ $EUID -ne 0 ]] && { echo "请使用 root 身份运行"; exit 1; }
 
 echo "================================"
-echo "   Xray SOCKS5 一键安装 v2.0"
+echo "   Xray SOCKS5 一键安装 v2.1"
 echo "================================"
 
 # 系统检测
@@ -27,28 +27,70 @@ echo "检测到系统：$OS"
 case "$OS" in
 alpine)
     apk update
-    apk add bash curl unzip
+    apk add bash curl wget unzip
     ;;
 debian)
     apt update
-    apt install -y curl unzip
+    apt install -y curl wget unzip
     ;;
 rhel)
-    dnf install -y curl unzip
+    dnf install -y curl wget unzip
     ;;
 centos)
-    yum install -y curl unzip
+    yum install -y curl wget unzip
     ;;
 esac
 
 # 安装 Xray
-bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install
+if [[ "$OS" == "alpine" ]]; then
+    echo "正在安装 Xray（二进制方式）..."
+
+    VER=$(curl -fsSL https://api.github.com/repos/XTLS/Xray-core/releases/latest \
+        | grep tag_name | cut -d '"' -f4)
+
+    case "$(uname -m)" in
+        x86_64) ARCH="64" ;;
+        aarch64) ARCH="arm64-v8a" ;;
+        armv7l) ARCH="arm32-v7a" ;;
+        *)
+            echo "不支持的架构"
+            exit 1
+        ;;
+    esac
+
+    wget -q -O /tmp/xray.zip \
+    "https://github.com/XTLS/Xray-core/releases/download/${VER}/Xray-linux-${ARCH}.zip"
+
+    mkdir -p /usr/local/xray
+    unzip -oq /tmp/xray.zip -d /usr/local/xray
+
+    install -m755 /usr/local/xray/xray /usr/local/bin/xray
+
+    mkdir -p /usr/local/share/xray
+    cp /usr/local/xray/*.dat /usr/local/share/xray/ 2>/dev/null || true
+
+    cat >/etc/init.d/xray <<'EOF'
+#!/sbin/openrc-run
+name="Xray"
+command="/usr/local/bin/xray"
+command_args="-config /usr/local/etc/xray/config.json"
+pidfile="/run/xray.pid"
+command_background=true
+depend() { need net; }
+EOF
+
+    chmod +x /etc/init.d/xray
+
+else
+    echo "正在安装 Xray（官方方式）..."
+    bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install
+fi
 
 mkdir -p /usr/local/etc/xray
 
 # 用户输入
-read -p "请输入 SOCKS5 端口 (默认55566): " PORT
-PORT=${PORT:-55566}
+read -p "请输入 SOCKS5 端口 (默认10808): " PORT
+PORT=${PORT:-10808}
 
 read -p "请输入用户名: " USER
 
@@ -61,57 +103,51 @@ while true; do
     echo "两次密码不一致，请重新输入！"
 done
 
-# 生成配置
+# 配置文件
 cat >/usr/local/etc/xray/config.json <<EOF
 {
-  "log":{"loglevel":"warning"},
-  "inbounds":[
-    {
-      "port":$PORT,
-      "protocol":"socks",
-      "settings":{
-        "auth":"password",
-        "accounts":[
-          {
-            "user":"$USER",
-            "pass":"$PASS"
-          }
-        ],
-        "udp":true
-      },
-      "sniffing":{
-        "enabled":true,
-        "destOverride":["http","tls","quic"]
-      }
+  "log": { "loglevel": "warning" },
+  "inbounds": [{
+    "port": $PORT,
+    "protocol": "socks",
+    "settings": {
+      "auth": "password",
+      "accounts": [{
+        "user": "$USER",
+        "pass": "$PASS"
+      }],
+      "udp": true
+    },
+    "sniffing": {
+      "enabled": true,
+      "destOverride": ["http","tls","quic"]
     }
-  ],
-  "outbounds":[
-    {
-      "protocol":"freedom"
-    }
-  ]
+  }],
+  "outbounds": [{
+    "protocol": "freedom"
+  }]
 }
 EOF
 
 # 防火墙
-if command -v ufw >/dev/null 2>&1; then
-    ufw allow ${PORT}/tcp >/dev/null 2>&1 || true
-    ufw allow ${PORT}/udp >/dev/null 2>&1 || true
+if command -v ufw >/dev/null; then
+    ufw allow ${PORT}/tcp || true
+    ufw allow ${PORT}/udp || true
 fi
 
-if command -v firewall-cmd >/dev/null 2>&1; then
-    firewall-cmd --permanent --add-port=${PORT}/tcp >/dev/null 2>&1 || true
-    firewall-cmd --permanent --add-port=${PORT}/udp >/dev/null 2>&1 || true
-    firewall-cmd --reload >/dev/null 2>&1 || true
+if command -v firewall-cmd >/dev/null; then
+    firewall-cmd --permanent --add-port=${PORT}/tcp || true
+    firewall-cmd --permanent --add-port=${PORT}/udp || true
+    firewall-cmd --reload || true
 fi
 
 # 启动服务
-if command -v systemctl >/dev/null 2>&1; then
+if [[ "$OS" == "alpine" ]]; then
+    rc-update add xray default >/dev/null
+    rc-service xray restart || rc-service xray start
+else
     systemctl enable xray
     systemctl restart xray
-elif command -v rc-service >/dev/null 2>&1; then
-    rc-update add xray default
-    rc-service xray restart || rc-service xray start
 fi
 
 IP=$(curl -4 -s https://api.ipify.org || hostname -I | awk '{print $1}')
