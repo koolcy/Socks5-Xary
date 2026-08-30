@@ -42,6 +42,25 @@ chmod +x install_socks5.sh
 sudo ./install_socks5.sh
 ```
 
+## 一键卸载
+
+如果需要彻底卸载本项目安装的 Xray SOCKS5，可直接执行：
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/koolcy/Socks5-Xary/main/uninstall_socks5.sh)
+```
+
+卸载脚本会清理：
+
+- Xray 程序
+- SOCKS5 配置文件
+- systemd / OpenRC 服务
+- Xray 日志
+- Xray 安装目录及资源文件
+- 临时文件和 PID 文件
+
+卸载脚本**不会修改 UFW / firewalld 防火墙规则，不会修改 SSH 配置，也不会删除系统其他软件**。
+
 ## 安装过程
 
 脚本会自动检测操作系统，然后提示输入：
